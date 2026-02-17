@@ -2,7 +2,7 @@ import argparse
 from src.config import DEFAULT_THETA
 from src.track import make_s_track, make_circle
 from src.optimization.random_search import optimize as random_opt
-from src.optimization.coordinate_descent import optimize as cd_opt
+from src.optimization.cd_golden_section import optimize as cd_opt
 from src.utils import save_best, load_best, rollout
 from src.visualization import run_replay
 
@@ -79,7 +79,7 @@ def main():
         save_best(args.save, best_J, best_theta, best_info, history=history)
         print(f"Saved: {args.save}")
 
-    # Rezim: Coordinate Descent + Golden Section
+    # Rezim: Coordinate Descent + Golden Section optimizacija
     elif args.mode == "cd":
         best_J, best_theta, best_info, history = cd_opt(
             obj, DEFAULT_THETA, cycles=args.cycles, gs_iters=args.gs_iters

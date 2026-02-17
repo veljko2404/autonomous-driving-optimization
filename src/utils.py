@@ -60,6 +60,7 @@ def rollout(track, theta: Dict[str, float]) -> Tuple[float, Dict[str, Any]]:
 
     finish = finish_line_point(track.centerline)
     reached = False
+    min_time_before_finish = 5.0
 
     """
     Glavna simulaciona petlja. U svakom koraku se racunaju komande
@@ -80,7 +81,7 @@ def rollout(track, theta: Dict[str, float]) -> Tuple[float, Dict[str, Any]]:
         state = step(state, a, delta)
         path_xy.append((state.x, state.y))
 
-        if math.hypot(state.x - finish[0], state.y - finish[1]) < 3.0:
+        if t > min_time_before_finish and math.hypot(state.x - finish[0], state.y - finish[1]) < 3.0:
             reached = True
             t += DT
             break
@@ -99,7 +100,7 @@ def rollout(track, theta: Dict[str, float]) -> Tuple[float, Dict[str, Any]]:
         0.8 * smooth_penalty
     )
 
-    info = { # informacije koje vracamo za analizu i vizuelizaciju
+    info = { # informacije koje vracamo za analizu i vizualizaciju
         "reached": reached,
         "t": float(t),
         "mean_cte": float(mean_cte),
