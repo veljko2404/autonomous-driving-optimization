@@ -11,7 +11,7 @@ def wrap_angle(a: float) -> float:
 
 @dataclass
 class PID:
-    # PID regulator za kontrolu brzine vozila.
+    # PID regulator za kontrolu brzine vozila
     Kp: float
     Ki: float
     Kd: float
@@ -30,8 +30,8 @@ class PID:
 
 def pure_pursuit_delta(state: State, goal_xy: Tuple[float,float], Ld: float, wheelbase: float) -> float:
     """
-    Izracunava ugao volana koristeci Pure Pursuit algoritam.
-    Vozilo se usmerava ka lookahead tacki.
+    Izracunava ugao volana koristeci Pure Pursuit algoritam
+    Vozilo se usmerava ka lookahead tacki
     """
     gx, gy = goal_xy
     dx = gx - state.x

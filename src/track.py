@@ -28,6 +28,11 @@ def make_s_track(n: int = 350, scale: float = 1.0) -> Track:
     return Track(centerline=center, width=6.0*scale)
 
 def make_circle(r: float = 35.0, n: int = 420) -> Track:
+    """
+    Generise kruznu stazu sa poluprecnikom r.
+    Staza se koristi za testiranje stabilnosti kretanja vozila
+    pri konstantnom zakrivljenju i zatvorenoj putanji.
+    """
     ang = np.linspace(0, 2*math.pi, n, endpoint=False)
     xs = r*np.cos(ang)
     ys = r*np.sin(ang)
@@ -35,12 +40,17 @@ def make_circle(r: float = 35.0, n: int = 420) -> Track:
     return Track(centerline=center, width=6.0)
 
 def polyline_segments(points: List[Point]):
+    """
+    Razbija poliliniju (centerline staze) na uzastopne segmente.
+    Svaki segment je par susednih tacaka i koristi se za
+    racunanje udaljenosti vozila od staze.
+    """
     for i in range(len(points)-1):
         yield points[i], points[i+1]
 
 def closest_point_on_segment(p: Point, a: Point, b: Point) -> Tuple[Point, float]:
     """
-    Računa najbližu tačku sa dužine AB na tačku P.
+    Racuna najbližu tacku sa dužine AB na tacku P.
     Koristi se za projekciju vozila na centerline staze.
     """
     px, py = p

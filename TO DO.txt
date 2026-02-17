@@ -1,0 +1,9 @@
+1. dodati jos neki metod npr:
+- dihotomije
+- 1d simplex
+- skeniranje konstantnim/promenljivim korakom
+
+2. napraviti .ipynb fajl gde ce sve biti lepo objasnjeno kako radi
+
+3. probati razlicite parametre u config.py
+

@@ -1,7 +1,13 @@
 from typing import Dict, Tuple, Any, Callable
 from ..config import BOUNDS
 
-def golden_section_minimize(f: Callable[[float], float], a: float, b: float, iters: int = 20):
+def golden_section_metoda(f: Callable[[float], float], a: float, b: float, max_iter: int = 20):
+    """
+    Pretraga zlatni presek za minimizaciju 1D funkcije f(x)
+    na intervalu [a, b], bez koriscenja gradijenta
+
+    Vraca (xbest, fbest) gde je xbest aproksimacija argmin, a fbest = f(xbest)
+    """
     phi = (1 + 5**0.5) / 2
     invphi = 1 / phi
 
@@ -10,7 +16,7 @@ def golden_section_minimize(f: Callable[[float], float], a: float, b: float, ite
     fc = f(c)
     fd = f(d)
 
-    for _ in range(iters):
+    for _ in range(max_iter):
         if fc < fd:
             b, d, fd = d, c, fc
             c = b - (b - a) * invphi
@@ -24,10 +30,7 @@ def golden_section_minimize(f: Callable[[float], float], a: float, b: float, ite
     fbest = f(xbest)
     return xbest, fbest
 
-def optimize(objective_fn: Callable[[Dict[str,float]], Tuple[float, Any]],
-             theta0: Dict[str,float],
-             cycles: int = 4,
-             gs_iters: int = 20):
+def optimize(objective_fn: Callable[[Dict[str,float]], Tuple[float, Any]], theta0: Dict[str,float], cycles: int = 4, gs_iters: int = 20):
     theta = dict(theta0)
     best_J, best_info = objective_fn(theta)
     history = [{"stage": "init", "J": best_J, "reached": bool(best_info.get("reached", False))}]
@@ -44,7 +47,7 @@ def optimize(objective_fn: Callable[[Dict[str,float]], Tuple[float, Any]],
                 J, _ = objective_fn(th)
                 return J
 
-            xbest, _ = golden_section_minimize(f1, lo, hi, iters=gs_iters)
+            xbest, _ = golden_section_metoda(f1, lo, hi, max_iter=gs_iters)
             theta[k] = xbest
             best_J, best_info = objective_fn(theta)
             history.append({"stage": f"cycle{c}:{k}", "J": best_J, "reached": bool(best_info.get("reached", False))})

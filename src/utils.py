@@ -7,11 +7,15 @@ from .controllers import PID, control_step
 from .track import finish_line_point
 
 def save_best(path: str, best_J: float, best_theta: Dict[str,float], best_info: Dict[str,Any], history=None):
-    payload = {
-        "best_J": best_J,
-        "best_theta": best_theta,
-        "best_info": {k: v for k, v in best_info.items() if k not in ("path","goals")},
-        "path": best_info.get("path", []),
+    """
+    Cuvа najbolje pronadjene parametre i rezultate simulacije u JSON fajl.
+    Koristi se za kasniji replay putanje i analizu performansi.
+    """
+    payload = { # U payload se cuvaju:
+        "best_J": best_J, # - najbolja vrednost cost funkcije
+        "best_theta": best_theta, # - parametri kontrolera
+        "best_info": {k: v for k, v in best_info.items() if k not in ("path","goals")}, # - osnovne metrike simulacije
+        "path": best_info.get("path", []), # - kompletna putanja za vizuelizaciju
         "goals": best_info.get("goals", []),
         "history": history or []
     }
@@ -19,23 +23,36 @@ def save_best(path: str, best_J: float, best_theta: Dict[str,float], best_info: 
         json.dump(payload, f, indent=2)
 
 def load_best(path: str):
+    """
+    Ucitava sacuvano najbolje resenje iz JSON fajla.
+    Koristi se za replay simulacije bez ponovnog treniranja.
+    """
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 def rollout(track, theta: Dict[str, float]) -> Tuple[float, Dict[str, Any]]:
+    """
+    Izvrsava jednu kompletnu simulaciju vozila po stazi.
+    Za zadate parametre kontrolera racuna cost funkciju J.
+
+    -----------------------------------------------------
+
+    Pocetno stanje vozila se postavlja na pocetak staze
+    Orijentacija se racuna na osnovu prvih tacaka centerline
+    """
     start = track.centerline[0]
     nxt = track.centerline[3]
     yaw0 = math.atan2(nxt[1]-start[1], nxt[0]-start[0])
     state = State(x=start[0], y=start[1], yaw=yaw0, v=0.0)
 
-    pid = PID(theta["Kp"], theta["Ki"], theta["Kd"])
+    pid = PID(theta["Kp"], theta["Ki"], theta["Kd"]) # PID regulator za kontrolu brzine
     pid.reset()
 
-    t = 0.0
+    t = 0.0 # vreme van staze
     offroad_steps = 0
     cte_sum = 0.0
-    cte_count = 0
-    steer_jerk = 0.0
+    cte_count = 0 # bocna greska (CTE)
+    steer_jerk = 0.0 # glatkoca upravljanja
     prev_delta = 0.0
 
     path_xy: List[Tuple[float,float]] = [(state.x, state.y)]
@@ -44,6 +61,10 @@ def rollout(track, theta: Dict[str, float]) -> Tuple[float, Dict[str, Any]]:
     finish = finish_line_point(track.centerline)
     reached = False
 
+    """
+    Glavna simulaciona petlja. U svakom koraku se racunaju komande
+    upravljanja, azurira stanje vozila i beleze metrike
+    """
     while t < MAX_TIME:
         a, delta, cte, goal = control_step(state, track.centerline, track.width, theta, pid, DT, WHEELBASE)
         goals.append(goal)
@@ -71,14 +92,14 @@ def rollout(track, theta: Dict[str, float]) -> Tuple[float, Dict[str, Any]]:
     time_penalty = t if reached else (MAX_TIME + 10.0)
     smooth_penalty = steer_jerk
 
-    J = (
+    J = ( # Ukupna cost funkcija J
         4.0 * mean_cte +
         40.0 * offroad_time +
         0.6 * time_penalty +
         0.8 * smooth_penalty
     )
 
-    info = {
+    info = { # informacije koje vracamo za analizu i vizuelizaciju
         "reached": reached,
         "t": float(t),
         "mean_cte": float(mean_cte),

@@ -2,15 +2,23 @@ import math
 from typing import List, Tuple, Optional, Dict, Any
 import pygame
 
-Point = Tuple[float,float]
+Point = Tuple[float,float] # tuple za 2D tacku
 
 def world_to_screen(x: float, y: float, origin: Point, scale: float) -> Tuple[int,int]:
+    """
+    Transformise koordinate iz sveta u koordinate ekrana (pikseli).
+    origin je pomeraj (offset) u pikselima, a scale je faktor u pikselima po metru.
+    """
     ox, oy = origin
     sx = int(ox + x*scale)
     sy = int(oy - y*scale)
     return sx, sy
 
 def compute_view(track_pts: List[Point], w: int, h: int, padding: int = 40):
+    """
+    Racuna origin i scale tako da cela staza stane u prozor.
+    Skaliranje bira najmanji faktor po x i y osi da ne bi doslo do seckanja staze.
+    """
     xs = [p[0] for p in track_pts]
     ys = [p[1] for p in track_pts]
     minx, maxx = min(xs), max(xs)
@@ -27,6 +35,10 @@ def compute_view(track_pts: List[Point], w: int, h: int, padding: int = 40):
     return origin, scale
 
 def draw_track(screen, centerline: List[Point], width_m: float, origin: Point, scale: float):
+    """
+    Crta put: prvo asfalt kao debelu sivu liniju, zatim centerline kao tanku belu liniju.
+    width_m je sirina puta u metrima i pretvara se u piksele pomocu scale.
+    """
     pts = [world_to_screen(x,y,origin,scale) for x,y in centerline]
     if len(pts) >= 2:
         road_px = max(3, int(width_m * scale))
@@ -34,20 +46,28 @@ def draw_track(screen, centerline: List[Point], width_m: float, origin: Point, s
         pygame.draw.lines(screen, (240,240,240), False, pts, 2)
 
 def draw_path(screen, path: List[Point], origin: Point, scale: float, color=(30,200,255), width=2):
+    """
+    Crta putanju vozila (trail) na osnovu liste tacaka koje su snimljene tokom simulacije.
+    """
     if not path or len(path) < 2:
         return
     pts = [world_to_screen(x,y,origin,scale) for x,y in path]
     pygame.draw.lines(screen, color, False, pts, width)
 
 def draw_car(screen, x: float, y: float, yaw: float, origin: Point, scale: float):
+    """
+    Crta vozilo kao trougao usmeren u pravcu yaw
+    Dimenzije su priblizne (L=duzina, W=sirina) i skaliraju se u piksele.
+    """
     px, py = world_to_screen(x,y,origin,scale)
     L = 3.6 * scale
     W = 1.8 * scale
 
     fx = math.cos(yaw)
-    fy = -math.sin(yaw)  # y is inverted on screen
+    fy = -math.sin(yaw)
     rx, ry = -fy, fx
 
+    # Tri temena trougla prednja + zadnja leva/desna tacka
     p1 = (px + fx*L*0.6, py + fy*L*0.6)
     p2 = (px - fx*L*0.4 + rx*W*0.4, py - fy*L*0.4 + ry*W*0.4)
     p3 = (px - fx*L*0.4 - rx*W*0.4, py - fy*L*0.4 - ry*W*0.4)
@@ -55,6 +75,9 @@ def draw_car(screen, x: float, y: float, yaw: float, origin: Point, scale: float
     pygame.draw.polygon(screen, (255,180,60), [p1,p2,p3])
 
 def draw_text(screen, lines: List[str], x: int = 10, y: int = 10):
+    """
+    Ispisuje tekstualni overlay (metrike i kontrole) u gornjem levom uglu.
+    """
     font = pygame.font.SysFont("consolas", 18)
     yy = y
     for line in lines:
@@ -64,6 +87,10 @@ def draw_text(screen, lines: List[str], x: int = 10, y: int = 10):
 
 def run_replay(track, replay_path: List[Point], replay_goals: Optional[List[Point]] = None, meta: Optional[Dict[str,Any]] = None,
                window=(1100, 700), fps=60):
+    """
+    Pygame replay: prikazuje stazu, putanju i kretanje vozila frame-po-frame.
+    Koristi sacuvanu putanju iz best.json, bez ponovnog pokretanja optimizacije.
+    """
     pygame.init()
     screen = pygame.display.set_mode(window)
     pygame.display.set_caption("Autonomno vozilo - replay")
@@ -87,12 +114,14 @@ def run_replay(track, replay_path: List[Point], replay_goals: Optional[List[Poin
                 if event.key == pygame.K_ESCAPE:
                     running = False
 
+        # Pomeri frejm unapred kada nije pauzirano
         if not paused and replay_path:
             i = min(len(replay_path)-1, i+1)
 
         screen.fill((18,18,22))
         draw_track(screen, track.centerline, track.width, origin, scale)
 
+        # putanja do trenutnog frame-a
         draw_path(screen, replay_path[:max(2,i)], origin, scale, color=(30,200,255), width=3)
 
         if replay_goals and i < len(replay_goals):
@@ -100,6 +129,7 @@ def run_replay(track, replay_path: List[Point], replay_goals: Optional[List[Poin
             gsx, gsy = world_to_screen(gx, gy, origin, scale)
             pygame.draw.circle(screen, (120,255,120), (gsx,gsy), 6)
 
+        # Nacrtaj vozilo na trenutnoj poziciji
         if replay_path:
             x, y = replay_path[i]
             if i < len(replay_path)-1:
