@@ -1,6 +1,5 @@
-# Autonomno vozilo (2D) + numerička optimizacija (bez RL)
+# Autonomno vozilo (2D) + numericka optimizacija
 
-**Šta dobijaš:**
 - 2D simulator (kinematički bicycle model)
 - Kontroler: Pure Pursuit (volan) + PID (brzina)
 - Optimizacija parametara:
@@ -13,23 +12,25 @@
 pip install -r requirements.txt
 ```
 
-## Pokretanje (primeri)
-1) Samo simulacija (bez UI):
+## Pokretanje
+### 1. Samo simulacija (bez UI):
 ```bash
 python main.py --mode sim --track s
 ```
 
-2) Random Search (sačuva best.json):
+### 2. Optimizacija
+
+#### 2.1 Random Search (sacuva best.json):
 ```bash
 python main.py --mode random --iters 200 --track s
 ```
 
-3) Coordinate Descent + Golden Section:
+#### 2.2 Coordinate Descent + Golden Section:
 ```bash
 python main.py --mode cd --cycles 4 --gs_iters 20 --track s
 ```
 
-4) Pusti UI + replay best:
+### 3. Pusti UI + replay best:
 ```bash
 python main.py --mode play --load best.json --track s
 ```
@@ -40,4 +41,4 @@ python main.py --mode play --load best.json --track s
 - v_ref: ciljna brzina
 - delta_max_deg: limit volana
 
-Sve u `src/config.py`.
+Sve je u `src/config.py`.
