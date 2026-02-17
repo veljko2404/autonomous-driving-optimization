@@ -1,0 +1,5 @@
+pip install -r requirements.txt
+python main.py --mode sim --track s
+python main.py --mode random --iters 200 --track s
+python main.py --mode cd --cycles 4 --gs_iters 20 --track s
+python main.py --mode play --load best.json --track s
