@@ -108,3 +108,4 @@ def main():
 if __name__ == "__main__":
     # Omogucava da se skripta pokrene direktno
     main()
+
