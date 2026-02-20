@@ -3,6 +3,8 @@ from src.config import DEFAULT_THETA
 from src.track import make_s_track, make_circle
 from src.optimization.random_search import optimize as random_opt
 from src.optimization.cd_golden_section import optimize as cd_opt
+from src.optimization.nelder_mead import optimize as nm_opt
+from src.optimization.cma_es import optimize as cma_opt
 from src.utils import save_best, load_best, rollout
 from src.visualization import run_replay
 
@@ -36,12 +38,14 @@ def main():
     preko argumenata komandne linije.
     """
     ap = argparse.ArgumentParser()
-    ap.add_argument("--mode", choices=["sim", "random", "cd", "play"], default="sim")
+    ap.add_argument("--mode", choices=["sim", "random", "cd" "nm", "cma", "play"], default="sim")
     ap.add_argument("--track", default="s", help="s | circle")
     ap.add_argument("--iters", type=int, default=200, help="random search iterations")
+    ap.add_argument("--lr_alg", type=float, default=0.01)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--cycles", type=int, default=4, help="coordinate descent cycles")
     ap.add_argument("--gs_iters", type=int, default=20, help="golden section iterations per coordinate")
+    ap.add_argument("--cma_iters", type=int, default=70, help="CMA-ES iterations")
     ap.add_argument("--save", default="best.json")
     ap.add_argument("--load", default="best.json")
     args = ap.parse_args()
@@ -84,6 +88,35 @@ def main():
         best_J, best_theta, best_info, history = cd_opt(
             obj, DEFAULT_THETA, cycles=args.cycles, gs_iters=args.gs_iters
         )
+        print("BEST J:", best_J)
+        print("BEST THETA:", best_theta)
+        print({k: best_info[k] for k in ("reached", "t", "mean_cte", "offroad_time", "steer_jerk")})
+
+        save_best(args.save, best_J, best_theta, best_info, history=history)
+        print(f"Saved: {args.save}")
+
+    #Rezim: Nelder-Mead optimizacija
+    elif args.mode == "nm":
+        best_J, best_theta, best_info, history = nm_opt(
+            obj, DEFAULT_THETA, max_iters=200
+        )
+
+        print("BEST J:", best_J)
+        print("BEST THETA:", best_theta)
+        print({k: best_info[k] for k in ("reached", "t", "mean_cte", "offroad_time", "steer_jerk")})
+
+        save_best(args.save, best_J, best_theta, best_info, history=history)
+        print(f"Saved: {args.save}")
+
+    # Rezim: CMA-ES optimizacija (Covariance Matrix Adaptation Evolution Strategy)
+    elif args.mode == "cma":
+        best_J, best_theta, best_info, history = cma_opt(
+            obj,
+            DEFAULT_THETA,
+            iters=args.cma_iters,
+            seed=args.seed
+        )
+
         print("BEST J:", best_J)
         print("BEST THETA:", best_theta)
         print({k: best_info[k] for k in ("reached", "t", "mean_cte", "offroad_time", "steer_jerk")})
