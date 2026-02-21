@@ -2,6 +2,7 @@ import math
 from dataclasses import dataclass
 from typing import List, Tuple
 import numpy as np
+import random
 
 """
 Modul za generisanje i obradu geometrije staze.
@@ -38,6 +39,38 @@ def make_circle(r: float = 35.0, n: int = 420) -> Track:
     ys = r*np.sin(ang)
     center = list(zip(xs.tolist(), ys.tolist()))
     return Track(centerline=center, width=6.0)
+
+# Ako hocemo krivudavu stazu, treba da povecamo control_points i jitter
+# Ako hocemo blagu stazu, smanji jitter
+def make_random_track(n: int = 420,
+                      scale: float = 1.0,
+                      seed: int | None = None,
+                      control_points: int = 8,
+                      radius: float = 35.0,
+                      jitter: float = 10.0,
+                      closed: bool = True) -> Track:
+
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+
+    if closed:
+        angles = np.linspace(0, 2*math.pi, control_points, endpoint=False)
+        ctrl = []
+        for a in angles:
+            r = radius*scale + random.uniform(-jitter, jitter)*scale
+            x = r * math.cos(a)
+            y = r * math.sin(a)
+            ctrl.append((x, y))
+    else:
+        xs = np.linspace(0, radius*2*scale, control_points)
+        ctrl = []
+        for x in xs:
+            y = random.uniform(-jitter, jitter) * scale
+            ctrl.append((x, y))
+
+    center = catmull_rom_chain(ctrl, n_points=n, closed=closed)
+    return Track(centerline=center, width=6.0*scale)
 
 def polyline_segments(points: List[Point]):
     """
@@ -104,3 +137,44 @@ def find_lookahead_goal(p: Point, centerline: List[Point], start_seg_idx: int, L
 
 def finish_line_point(centerline: List[Point]) -> Point:
     return centerline[-1]
+
+# Catmull-Rom spline
+def _catmull_rom_one_segment(p0, p1, p2, p3, n_points):
+    t = np.linspace(0, 1, n_points, endpoint=False)
+    t2 = t * t
+    t3 = t2 * t
+
+    a0 = -0.5*p0[0] + 1.5*p1[0] - 1.5*p2[0] + 0.5*p3[0]
+    a1 = p0[0] - 2.5*p1[0] + 2*p2[0] - 0.5*p3[0]
+    a2 = -0.5*p0[0] + 0.5*p2[0]
+    a3 = p1[0]
+
+    b0 = -0.5*p0[1] + 1.5*p1[1] - 1.5*p2[1] + 0.5*p3[1]
+    b1 = p0[1] - 2.5*p1[1] + 2*p2[1] - 0.5*p3[1]
+    b2 = -0.5*p0[1] + 0.5*p2[1]
+    b3 = p1[1]
+
+    xs = a0*t3 + a1*t2 + a2*t + a3
+    ys = b0*t3 + b1*t2 + b2*t + b3
+    return list(zip(xs.tolist(), ys.tolist()))
+
+
+def catmull_rom_chain(points, n_points=400, closed=True):
+    if len(points) < 2:
+        return points[:]
+
+    pts = points[:]
+    if closed:
+        pts = [points[-2], points[-1]] + points + [points[0], points[1]]
+    else:
+        pts = [points[0]] + points + [points[-1]]
+
+    segments = len(pts) - 3
+    per_seg = max(1, n_points // segments)
+
+    curve = []
+    for i in range(segments):
+        p0, p1, p2, p3 = pts[i], pts[i+1], pts[i+2], pts[i+3]
+        curve.extend(_catmull_rom_one_segment(p0, p1, p2, p3, per_seg))
+
+    return curve[:n_points]
