@@ -1,6 +1,6 @@
 import argparse
 from src.config import DEFAULT_THETA
-from src.track import make_s_track, make_circle
+from src.track import make_s_track, make_circle, make_random_track
 from src.optimization.random_search import optimize as random_opt
 from src.optimization.cd_golden_section import optimize as cd_opt
 from src.optimization.nelder_mead import optimize as nm_opt
@@ -19,7 +19,7 @@ def get_track(name: str):
         return make_s_track()
     if name in ("circle", "c"):
         return make_circle()
-    raise ValueError("Nepoznata staza. Koristi: s ili circle")
+    raise ValueError("Nepoznata staza. Koristi: s ili circle ili random")
 
 # Omotac oko rollout funkcije da bi se fiksirala staza
 def objective_fn(track):
@@ -38,8 +38,13 @@ def main():
     preko argumenata komandne linije.
     """
     ap = argparse.ArgumentParser()
-    ap.add_argument("--mode", choices=["sim", "random", "cd" "nm", "cma", "play"], default="sim")
-    ap.add_argument("--track", default="s", help="s | circle")
+    ap.add_argument("--mode", choices=["sim", "random", "cd", "nm", "cma", "play"], default="sim")
+    ap.add_argument("--track", default="s", help="s | circle | random")
+    ap.add_argument("--control_points", type=int, default=8, help="Number of control points for random track")
+    ap.add_argument("--radius", type=float, default=35.0, help="Average radius/length scale for random track")
+    ap.add_argument("--jitter", type=float, default=10.0, help="Jitter magnitude for random track")
+    ap.add_argument("--closed", type=lambda x: x.lower() in ("1", "true", "yes"), default=True,
+                    help="Whether random track is closed (True/False)")
     ap.add_argument("--iters", type=int, default=200, help="random search iterations")
     ap.add_argument("--lr_alg", type=float, default=0.01)
     ap.add_argument("--seed", type=int, default=0)
@@ -51,7 +56,20 @@ def main():
     args = ap.parse_args()
 
     # Kreiranje staze i objective funkcije
-    track = get_track(args.track)
+    # Ako je korisnik izabrao random stazu, iskoristi dodatne parametre; inace pozovi get_track
+    if args.track.lower() in ("random", "rand"):
+        track = make_random_track(
+            n=420,
+            scale=1.0,
+            seed=args.seed,
+            control_points=args.control_points,
+            radius=args.radius,
+            jitter=args.jitter,
+            closed=args.closed
+        )
+    else:
+        track = get_track(args.track)
+
     obj = objective_fn(track)
 
     # Rezim: samo simulacija sa default parametrima

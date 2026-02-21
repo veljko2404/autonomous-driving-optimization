@@ -159,7 +159,7 @@ def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=
     # Save numeric results JSON
     out_dir = "results"
     os.makedirs(out_dir, exist_ok=True)
-    ts = int(time.time())
+    ts = time.strftime("%Y-%m-%d_%H-%M-%S")
     out_json = os.path.join(out_dir, f"benchmark_{ts}.json")
     with open(out_json, "w") as f:
         json.dump({'params': params, 'results': results, 'curves': curves}, f, indent=2)
@@ -176,34 +176,81 @@ def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=
             writer.writerow([name, meta['best_J'], meta['evals'], meta['time_s'], reached_val])
     print("Saved CSV summary to", csv_path)
 
-    # ---------- Plot 1: zoom (first N evals) ----------
+    # ---------- Plot 1: zoom (by J-range) ----------
+    # Zoom settings: change these to your desired J window
+    zoom_j_range = (0.0, 20.0)  # (ymin, ymax)  — set to (None, None) to disable J clipping
+    zoom_x_focus = True  # if True, x-axis is cropped to indices where curve enters the J window
+
     try:
         import matplotlib.pyplot as plt
     except Exception as e:
         print("matplotlib not available:", e)
         return results, best_so_far, out_json, None
 
-    zoom_cut = 150  # default; can be exposed as CLI arg if desired
-    plt.figure(figsize=(9, 5))
-    max_len = max(len(v) for v in best_so_far.values())
+    plt.figure()
+    plotted_any = False
+    ymin, ymax = zoom_j_range
+
     for name, arr in best_so_far.items():
-        arr_cut = arr[:zoom_cut]
-        if len(arr_cut) == 0:
+        if len(arr) == 0:
             continue
-        plt.plot(np.arange(1, len(arr_cut) + 1), arr_cut, label=f"{name} (evals={len(curves[name])})")
-    plt.xlabel("Function evaluations")
-    plt.ylabel("Best J so far (lower = better)")
-    plt.title(f"Benchmark (zoom first {zoom_cut} evals)")
-    plt.legend()
-    plt.grid(True)
-    out_png_zoom = os.path.join(out_dir, f"benchmark_{ts}_zoom.png")
-    plt.tight_layout()
-    plt.savefig(out_png_zoom, dpi=150)
-    plt.close()
-    print("Saved zoom plot to", out_png_zoom)
+        arr_np = np.array(arr)  # best-so-far (non-increasing sequence)
+        x = np.arange(1, len(arr_np) + 1)
+
+        if ymin is None and ymax is None:
+            # no J clipping: plot full curve
+            plot_x, plot_y = x, arr_np
+        elif zoom_x_focus:
+            # focus x to the interval where arr enters the J-window
+            # find first index where arr <= ymax (if ymax provided), otherwise first index 0
+            if ymax is not None:
+                idx_start = np.argmax(arr_np <= ymax) if np.any(arr_np <= ymax) else None
+            else:
+                idx_start = 0
+            # find last index where arr >= ymin (if ymin provided), otherwise last index
+            if ymin is not None:
+                # arr is non-increasing, so last index satisfying arr >= ymin is:
+                mask_ge = arr_np >= ymin
+                idx_end = np.where(mask_ge)[0][-1] if np.any(mask_ge) else None
+            else:
+                idx_end = len(arr_np) - 1
+
+            if idx_start is None or idx_end is None or idx_start > idx_end:
+                # nothing to plot in this J window for this algo
+                continue
+
+            plot_x = x[idx_start: idx_end + 1]
+            plot_y = arr_np[idx_start: idx_end + 1]
+        else:
+            # plot full x-range but clip y-axis later
+            plot_x, plot_y = x, arr_np
+
+        plt.plot(plot_x, plot_y, label=f"{name} (evals={len(curves.get(name, []))})")
+        plotted_any = True
+
+    if not plotted_any:
+        print("No curves entered the requested J window; skipping zoom plot.")
+    else:
+        plt.xlabel("Function evaluations")
+        plt.ylabel("Best J so far (lower = better)")
+        plt.title(f"Benchmark (zoom by J-range {ymin}..{ymax})")
+        plt.legend()
+        plt.grid(True)
+
+        # If not focusing x, set y-limits to requested window so the plot is zoomed vertically.
+        if not zoom_x_focus:
+            ylo = -np.inf if ymin is None else ymin
+            yhi = np.inf if ymax is None else ymax
+            plt.ylim(ylo, yhi)
+
+        out_png_zoom = os.path.join(out_dir, f"benchmark_{ts}_zoom_byJ_{ymin}_{ymax}.png")
+        plt.tight_layout()
+        plt.savefig(out_png_zoom, dpi=150)
+        plt.close()
+        print("Saved zoom (by J-range) plot to", out_png_zoom)
 
     # ---------- Plot 2: full budget ----------
-    plt.figure(figsize=(9, 5))
+    plt.figure()
     max_len = max(len(v) for v in best_so_far.values())
     for name, arr in best_so_far.items():
         # pad last value to match lengths for clean plotting
