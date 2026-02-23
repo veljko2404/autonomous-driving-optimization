@@ -43,14 +43,17 @@ def main():
     ap.add_argument("--control_points", type=int, default=8, help="Number of control points for random track")
     ap.add_argument("--radius", type=float, default=35.0, help="Average radius/length scale for random track")
     ap.add_argument("--jitter", type=float, default=10.0, help="Jitter magnitude for random track")
-    ap.add_argument("--closed", type=lambda x: x.lower() in ("1", "true", "yes"), default=True,
-                    help="Whether random track is closed (True/False)")
+    ap.add_argument("--closed", type=lambda x: x.lower() in ("1", "true", "yes"), default=True, help="Whether random track is closed (True/False)")
+
+    # Prilagodljivi parametri algoritama optimizacije
     ap.add_argument("--iters", type=int, default=200, help="random search iterations")
     ap.add_argument("--lr_alg", type=float, default=0.01)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--cycles", type=int, default=4, help="coordinate descent cycles")
     ap.add_argument("--gs_iters", type=int, default=20, help="golden section iterations per coordinate")
     ap.add_argument("--cma_iters", type=int, default=70, help="CMA-ES iterations")
+    ap.add_argument("--cma_sigma", type=float, default=0.3, help="globalni step-size")
+
     ap.add_argument("--save", default="best.json")
     ap.add_argument("--load", default="best.json")
     args = ap.parse_args()
@@ -132,7 +135,8 @@ def main():
             obj,
             DEFAULT_THETA,
             iters=args.cma_iters,
-            seed=args.seed
+            seed=args.seed,
+            sigma=args.cma_sigma
         )
 
         print("BEST J:", best_J)

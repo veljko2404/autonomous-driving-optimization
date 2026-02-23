@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def optimize(obj, x0, iters=70, seed=0):
+def optimize(obj, x0, iters=70, seed=0, sigma = 0.3):
     """
     CMA-ES (Covariance Matrix Adaptation Evolution Strategy)
 
@@ -27,6 +27,9 @@ def optimize(obj, x0, iters=70, seed=0):
 
     seed : int
         Seed za reproduktivnost (kontrola random generatora).
+
+    sigma : float
+        Globalni step-size (početna širina distribucije)
 
     Returns
     -------
@@ -77,9 +80,6 @@ def optimize(obj, x0, iters=70, seed=0):
 
     # Efektivni broj roditelja
     mu_eff = 1.0 / np.sum(weights**2)
-
-    # Globalni step-size (početna širina distribucije)
-    sigma = 0.3
 
     # ==========================================================
     # ADAPTACIONI KOEFICIJENTI
@@ -143,7 +143,7 @@ def optimize(obj, x0, iters=70, seed=0):
             z = rng.standard_normal(n)
 
             # Transformacija u korelisani prostor
-            x = x_mean + sigma * (B @ (D * z))
+            x = x_mean + sigma * (B @ (D * z)) # sigma je globalni step-size (početna širina distribucije)
 
             population.append(x)
             zs.append(z)

@@ -33,7 +33,14 @@ python main.py --mode cd --cycles 4 --gs_iters 20 --track s
 ```
 
 #### 2.3 Nelder-Mead:
-#### CMA-ES:
+```bash
+python main.py --mode nm --iters 200 --track s
+```
+
+#### 2.4 CMA-ES:
+```bash
+python main.py --mode cma --iters 200 --track s
+```
 
 ### 3. Pusti UI + replay best:
 ```bash
