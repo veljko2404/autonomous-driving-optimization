@@ -1,4 +1,4 @@
-# Autonomno vozilo (2D) + numericka optimizacija
+# Autonomno vozilo (2D) + numerička optimizacija
 
 - 2D simulator (kinematički bicycle model)
 - Kontroler: Pure Pursuit (volan) + PID (brzina)
@@ -31,6 +31,9 @@ python main.py --mode random --iters 200 --track s
 ```bash
 python main.py --mode cd --cycles 4 --gs_iters 20 --track s
 ```
+
+#### 2.3 Nelder-Mead:
+#### CMA-ES:
 
 ### 3. Pusti UI + replay best:
 ```bash
