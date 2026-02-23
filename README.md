@@ -1,10 +1,12 @@
-# Autonomno vozilo (2D) + numericka optimizacija
+# Autonomno vozilo (2D) + numerička optimizacija
 
 - 2D simulator (kinematički bicycle model)
 - Kontroler: Pure Pursuit (volan) + PID (brzina)
 - Optimizacija parametara:
   - Random Search (baseline)
   - Coordinate Descent + Golden Section (1D line-search po koordinatama)
+  - Nelder-Mead
+  - CMA-ES (Covariance Matrix Adaptation Evolution Strategy)
 - Pygame vizuelizacija + replay najbolje putanje
 
 ## Instalacija
@@ -28,6 +30,16 @@ python main.py --mode random --iters 200 --track s
 #### 2.2 Coordinate Descent + Golden Section:
 ```bash
 python main.py --mode cd --cycles 4 --gs_iters 20 --track s
+```
+
+#### 2.3 Nelder-Mead:
+```bash
+python main.py --mode nm --iters 200 --track s
+```
+
+#### 2.4 CMA-ES:
+```bash
+python main.py --mode cma --iters 200 --track s
 ```
 
 ### 3. Pusti UI + replay best:
