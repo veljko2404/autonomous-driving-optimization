@@ -24,10 +24,8 @@ from src.optimization.cd_golden_section import optimize as cd_opt
 from src.optimization.nelder_mead import optimize as nm_opt
 from src.optimization.cma_es import optimize as cma_opt
 
-
-# ==========================================================
 #  Wrapper za brojanje evaluacija funkcije cilja
-# ==========================================================
+
 class CountingObjective:
     """
     Ovaj wrapper služi za:
@@ -68,10 +66,8 @@ class CountingObjective:
         self.J_list = []
         self.info_list = []
 
-
-# ==========================================================
 #  Kreiranje objective funkcije za konkretnu stazu
-# ==========================================================
+
 def make_objective_for_track(track):
     """
     Vraća funkciju obj(theta) koja:
@@ -86,10 +82,8 @@ def make_objective_for_track(track):
         return rollout(track, theta)
     return obj
 
-
-# ==========================================================
 #  Benchmark procedura
-# ==========================================================
+
 def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=20):
     """
     Pokreće više optimizacionih algoritama nad istim problemom
@@ -153,9 +147,8 @@ def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=
     results = {}
     curves = {}
 
-    # ======================================================
     # RANDOM SEARCH
-    # ======================================================
+    
     cnt_obj.reset()
     start = time.time()
 
@@ -179,9 +172,7 @@ def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=
 
     print(f"[random] evals={cnt_obj.eval_count} time={t:.2f}s best_J={best_J}")
 
-    # ======================================================
     # COORDINATE DESCENT
-    # ======================================================
     cnt_obj.reset()
     start = time.time()
 
@@ -206,9 +197,7 @@ def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=
 
     print(f"[cd] evals={cnt_obj.eval_count} time={t:.2f}s best_J={best_J}")
 
-    # ======================================================
     # NELDER-MEAD
-    # ======================================================
     cnt_obj.reset()
     start = time.time()
 
@@ -232,9 +221,7 @@ def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=
 
     print(f"[nm] evals={cnt_obj.eval_count} time={t:.2f}s best_J={best_J}")
 
-    # ======================================================
     # CMA-ES
-    # ======================================================
     cnt_obj.reset()
     start = time.time()
 
@@ -259,9 +246,7 @@ def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=
 
     print(f"[cma] evals={cnt_obj.eval_count} time={t:.2f}s best_J={best_J}")
 
-    # ======================================================
     # Post-processing: best-so-far krive
-    # ======================================================
     best_so_far = {}
 
     for k, js in curves.items():
@@ -275,9 +260,7 @@ def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=
 
         best_so_far[k] = best
 
-    # ======================================================
     # Čuvanje rezultata
-    # ======================================================
     out_dir = "results"
     os.makedirs(out_dir, exist_ok=True)
 
@@ -294,9 +277,7 @@ def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=
 
     print("Saved numeric results to", out_json)
 
-    # ======================================================
     # Plotovanje krivih konvergencije
-    # ======================================================
     plt.figure()
 
     max_len = max(len(v) for v in best_so_far.values())
@@ -325,9 +306,7 @@ def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=
 
     print("Saved full plot to", out_png_full)
 
-    # ======================================================
     # Plot 2: y-limit zoom (10 <= J <= 14)
-    # ======================================================
     plt.figure()
 
     for name, arr in best_so_far.items():
@@ -357,9 +336,7 @@ def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=
     return results, best_so_far, out_json, out_png_full
 
 
-# ==========================================================
 # CLI pokretanje iz terminala
-# ==========================================================
 if __name__ == "__main__":
     import argparse
 
