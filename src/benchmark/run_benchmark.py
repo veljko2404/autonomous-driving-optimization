@@ -326,7 +326,7 @@ def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=
     print("Saved full plot to", out_png_full)
 
     # ======================================================
-    # Plot 3: y-limit zoom (10 <= J <= 14)
+    # Plot 2: y-limit zoom (10 <= J <= 14)
     # ======================================================
     plt.figure()
 

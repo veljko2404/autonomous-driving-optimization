@@ -1,19 +1,16 @@
 pip install -r requirements.txt
 
-- treba nam kada pokrecemo benchmark
-pip install matplotlib
+- za stazu CIRCLE
+python main.py --mode sim --track circle
+python main.py --mode play --load best.json --track circle
 
-- ako hocemo lepe tabele kad pokrecemo benchmark
-pip install tabulate
+
 
 - za stazu S:
 python main.py --mode sim --track s
 python main.py --mode play --load best.json --track s
 python main.py --mode play --track s
 
-- za stazu CIRCLE
-python main.py --mode sim --track circle
-python main.py --mode play --load best.json --track circle
 
 - za stazu RANDOM
 python main.py --mode sim --track random --seed 42 --control_points 12 --jitter 15
@@ -24,3 +21,8 @@ python main.py --mode random --iters 200 --track s
 
 - za pozivanje sva 4 algoritma uporedo i plotovanje
 python -m src.benchmark.run_benchmark --track s --budget 480
+
+- ovo mozemo pokretati
+python main.py --mode sim --track random --seed 42 --control_points 10 --jitter 15
+python main.py --mode cd --track random --seed 42 --control_points 10 --jitter 15
+python main.py --mode nm --track random --seed 42 --control_points 10 --jitter 15
