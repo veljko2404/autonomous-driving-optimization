@@ -9,3 +9,7 @@ dodaje se u src/optimization/ i u main.py kod args.mode kao poseban elif
 
 3. probati razlicite parametre u config.py
 
+4. promenisi S stazu
+
+5. grafik nije dobar, nista se ne vidi
+

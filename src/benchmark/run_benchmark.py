@@ -15,13 +15,18 @@ from src.optimization.cd_golden_section import optimize as cd_opt
 from src.optimization.nelder_mead import optimize as nm_opt
 from src.optimization.cma_es import optimize as cma_opt
 
+
 # ---------- Wrapper za brojanje evaluacija i prikupljanje J vrednosti ----------
 class CountingObjective:
     """
-    Omota objective funkciju tako da:
-    - broji svaku evaluaciju
-    - pamti listu svih J vrednosti (redosled poziva)
-    - omogućava pozivanje originalnog obj(dict)->(J,info)
+    Omota objective funkciju kako bi:
+      - brojao koliko puta je funkcija pozvana (eval_count),
+      - čuvao listu svih dobijenih J vrednosti (J_list) u redosledu poziva,
+      - čuvao pridružene info vrednosti (info_list),
+      - prosleđivao pozivanje originalnoj obj_fn funkciji.
+
+    Korisno za benchmark: tako dobijemo tačan broj evaluacija i krivulje
+    "best so far" po pozivima funkcije.
     """
     def __init__(self, obj_fn):
         self.obj_fn = obj_fn
@@ -30,6 +35,7 @@ class CountingObjective:
         self.info_list = []
 
     def __call__(self, theta_dict):
+        # Pozovi originalnu funkciju cilja i zabeleži rezultat
         J, info = self.obj_fn(theta_dict)
         self.eval_count += 1
         self.J_list.append(float(J))
@@ -37,56 +43,93 @@ class CountingObjective:
         return J, info
 
     def reset(self):
+        # Resetuje brojilo i liste — koristan pre pokretanja svake metode
         self.eval_count = 0
         self.J_list = []
         self.info_list = []
 
+
 # ---------- Helper: build objective for a track ----------
 def make_objective_for_track(track):
+    """
+    Pravi funkciju obj(theta) koja enkapsulira rollout nad konkretnim stazom.
+    rollout(track, theta) vraća (J, info) — tako možemo proslediti tu funkciju
+    u optimizacione algoritme koji očekuju obj(dict)->(J,info).
+    """
     def obj(theta):
         return rollout(track, theta)
     return obj
 
+
 # ---------- Benchmark procedure ----------
 def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=20):
-    track = make_s_track() if track_name.lower().startswith("s") else None
-    obj = make_objective_for_track(track)
-    cnt_obj = CountingObjective(obj)
+    """
+    Pokreće benchmark nekoliko optimizatora nad istim problemom i
+    mapira ukupni eval_budget na parametre pojedinih algoritama.
 
-    # Problem dimension
+    Arguments:
+      track_name: "s" ili "circle" (trenutno podržano samo "s" kroz make_s_track)
+      eval_budget: ukupni broj dozvoljenih evaluacija funkcije cilja
+      cma_seed: seed za reproducibilnost CMA-ES-a
+      gs_iters_default: broj iteracija za Golden Section u CD+GS algoritmu
+    Returns:
+      results: dict sa metrikama (finalni best_J, evaluacije, vreme ...)
+      best_so_far: dict sa listama "najbolje do sada" po evaluaciji (non-increasing)
+      out_json: putanja do sačuvanog JSON fajla sa numeričkim rezultatima
+      out_png_full: putanja do glavnog (full) PNG plot-a
+    """
+
+    # --- priprema problema i objective ---
+    track = make_s_track() if track_name.lower().startswith("s") else None
+    # Ako budu dodate druge staze, proširiti grananje iznad.
+    obj = make_objective_for_track(track)
+    cnt_obj = CountingObjective(obj)  # omotač za brojanje i cuvanje J-ova
+
+    # Dimenzija problema (broj parametara iz DEFAULT_THETA dict-a)
     n = len(DEFAULT_THETA)
-    # CMA population
+
+    # CMA populacija (isti izraz kao u implementaciji CMA-ES)
     lambda_cma = 4 + int(3 * np.log(n))
-    # Map budget -> per-algo iteration params (approximate)
+
+    # Mapiranje ukupnog budžeta na parametre pojedinih algoritama.
+    # Cilj: približno fer poređenje (svaki algoritam troši ~eval_budget evaluacija)
     params = {}
 
-    # Random Search: one evaluation per iteration
+    # Random Search: svaki iter poziva obj jednom -> iters = eval_budget
     params['random'] = {'iters': eval_budget}
 
-    # CMA-ES: evaluations per iter = lambda_cma
+    # CMA-ES: svaka iteracija (generacija) koristi lambda_cma evaluacija
+    # broj generacija = eval_budget / lambda_cma
     params['cma'] = {'iters': max(1, int(round(eval_budget / lambda_cma)))}
 
-    # Nelder-Mead: NM evaluates (n+1) points per NM-iteration (initial simplex included)
+    # Nelder-Mead: NM interno evaluira n+1 tačaka po iteraciji
     params['nm'] = {'max_iters': max(1, int(floor(eval_budget / (n + 1))))}
 
-    # Coordinate Descent + Golden Section: per cycle ~ n * gs_iters_default evaluations (approx)
+    # Coordinate Descent + Golden Section: procena da je jedan ciklus ~
+    # n * gs_iters_default evaluacija (po koordinati gs_iters)
     est_cycle_evals = n * gs_iters_default
-    params['cd'] = {'cycles': max(1, int(floor(eval_budget / max(1, est_cycle_evals)))),
-                    'gs_iters': gs_iters_default}
+    params['cd'] = {
+        'cycles': max(1, int(floor(eval_budget / max(1, est_cycle_evals)))),
+        'gs_iters': gs_iters_default
+    }
 
+    # Ispis za korisnika (kratka provera mapiranja budžeta)
     print("Benchmark settings (approx.):")
     print(f" problem dim n = {n}")
     print(f" eval_budget = {eval_budget}")
     print(" mapped params:", params)
 
-    results = {}
-    curves = {}
+    results = {}  # meta-podaci o svakom algoritmu (vraćamo ovo)
+    curves = {}   # sirovi nizovi J po pozivu za svaki algoritam
 
     # --- Random Search ---
-    cnt_obj.reset()
+    cnt_obj.reset()  # reset brojila pre svakog algoritma
     start = time.time()
+    # random_opt signature: optimize(obj, iters=..., seed=...)
     best_J, best_theta, best_info, history = random_opt(cnt_obj, iters=params['random']['iters'], seed=0)
     t = time.time() - start
+
+    # Skladištimo metrike za kasniju upotrebu/ispis
     results['random'] = {
         'best_J': float(best_J),
         'best_theta': best_theta,
@@ -94,6 +137,7 @@ def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=
         'evals': cnt_obj.eval_count,
         'time_s': t
     }
+    # Sačuvaj listu svih J vrednosti koje je CountingObjective zabeležio
     curves['random'] = cnt_obj.J_list.copy()
     print(f"[random] evals={cnt_obj.eval_count} time={t:.2f}s best_J={best_J}")
 
@@ -101,9 +145,12 @@ def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=
     cnt_obj.reset()
     start = time.time()
     # cd_opt signature: optimize(obj, x0, cycles=..., gs_iters=...)
-    best_J, best_theta, best_info, history = cd_opt(cnt_obj, DEFAULT_THETA,
-                                                   cycles=params['cd']['cycles'],
-                                                   gs_iters=params['cd']['gs_iters'])
+    best_J, best_theta, best_info, history = cd_opt(
+        cnt_obj,
+        DEFAULT_THETA,
+        cycles=params['cd']['cycles'],
+        gs_iters=params['cd']['gs_iters']
+    )
     t = time.time() - start
     results['cd'] = {
         'best_J': float(best_J),
@@ -118,6 +165,7 @@ def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=
     # --- Nelder-Mead ---
     cnt_obj.reset()
     start = time.time()
+    # nm_opt signature: optimize(obj, x0, max_iters=...)
     best_J, best_theta, best_info, history = nm_opt(cnt_obj, DEFAULT_THETA, max_iters=params['nm']['max_iters'])
     t = time.time() - start
     results['nm'] = {
@@ -133,6 +181,7 @@ def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=
     # --- CMA-ES ---
     cnt_obj.reset()
     start = time.time()
+    # cma_opt signature: optimize(obj, x0, iters=..., seed=...)
     best_J, best_theta, best_info, history = cma_opt(cnt_obj, DEFAULT_THETA, iters=params['cma']['iters'], seed=cma_seed)
     t = time.time() - start
     results['cma'] = {
@@ -146,22 +195,26 @@ def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=
     print(f"[cma] evals={cnt_obj.eval_count} time={t:.2f}s best_J={best_J}")
 
     # ---------- Postprocess: build best-so-far curve per evaluation ----------
-    # For plotting we want monotonic 'best-so-far' arrays vs eval index
+    # Mape: za svaki algoritam želimo niz koji na poziciji k sadrži vrednost
+    # najboljeg J-a koji je ikada do tada iskazan — to olakšava poređenje.
     best_so_far = {}
     for k, js in curves.items():
         best = []
         cur_min = float('inf')
         for j in js:
-            if j < cur_min: cur_min = j
+            # formiramo monotono ne-povećavajuću listu: best_so_far
+            if j < cur_min:
+                cur_min = j
             best.append(cur_min)
         best_so_far[k] = best
 
-    # Save numeric results JSON
+    # ---------- Sačuvaj numeričke rezultate u JSON ----------
     out_dir = "results"
     os.makedirs(out_dir, exist_ok=True)
     ts = time.strftime("%Y-%m-%d_%H-%M-%S")
     out_json = os.path.join(out_dir, f"benchmark_{ts}.json")
     with open(out_json, "w") as f:
+        # Čuvamo parametre, rezultate i sirove krivulje J-ova
         json.dump({'params': params, 'results': results, 'curves': curves}, f, indent=2)
     print("Saved numeric results to", out_json)
 
@@ -170,59 +223,67 @@ def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=
     csv_path = os.path.join(out_dir, f"benchmark_{ts}_summary.csv")
     with open(csv_path, "w", newline='') as cf:
         writer = csv.writer(cf)
+        # zaglavlje CSV tabele
         writer.writerow(["algorithm", "final_best_J", "evals", "time_s", "reached"])
         for name, meta in results.items():
+            # očekujemo da best_info eventualno sadrži ključeve poput 'reached'
             reached_val = meta.get('best_info', {}).get('reached', None)
             writer.writerow([name, meta['best_J'], meta['evals'], meta['time_s'], reached_val])
     print("Saved CSV summary to", csv_path)
 
     # ---------- Plot 1: zoom (by J-range) ----------
-    # Zoom settings: change these to your desired J window
-    zoom_j_range = (0.0, 20.0)  # (ymin, ymax)  — set to (None, None) to disable J clipping
-    zoom_x_focus = True  # if True, x-axis is cropped to indices where curve enters the J window
+    # Opcija: fokus na vertikalni opseg J (zoom_j_range), i opciono fokus na x
+    zoom_j_range = (0.0, 20.0)  # (ymin, ymax)  — postavi na (None, None) da isključiš clipping
+    zoom_x_focus = True  # ako True, x osa se skraćuje samo na indeks gde kriva ulazi u J window
 
     try:
         import matplotlib.pyplot as plt
     except Exception as e:
         print("matplotlib not available:", e)
+        # Vraćamo rezultate, i None umesto slike
         return results, best_so_far, out_json, None
 
+    # Kreiramo figure i plotujemo samo delove krivih koji spadaju u J-window
     plt.figure()
     plotted_any = False
     ymin, ymax = zoom_j_range
 
     for name, arr in best_so_far.items():
         if len(arr) == 0:
+            # nema evaluacija za ovaj algoritam
             continue
         arr_np = np.array(arr)  # best-so-far (non-increasing sequence)
         x = np.arange(1, len(arr_np) + 1)
 
+        # Odlučujemo koji deo krive crtamo:
         if ymin is None and ymax is None:
-            # no J clipping: plot full curve
+            # bez J clipping-a: plotujemo sve
             plot_x, plot_y = x, arr_np
+
         elif zoom_x_focus:
-            # focus x to the interval where arr enters the J-window
-            # find first index where arr <= ymax (if ymax provided), otherwise first index 0
+            # Fokusiramo x na interval gde kriva ulazi u J-window
+            # idx_start: prvi indeks gde arr <= ymax (ako je ymax dat)
             if ymax is not None:
                 idx_start = np.argmax(arr_np <= ymax) if np.any(arr_np <= ymax) else None
             else:
                 idx_start = 0
-            # find last index where arr >= ymin (if ymin provided), otherwise last index
+
+            # idx_end: poslednji indeks gde arr >= ymin (ako je ymin dat).
+            # arr je ne-povećavajuća, pa maske rade jednostavno.
             if ymin is not None:
-                # arr is non-increasing, so last index satisfying arr >= ymin is:
                 mask_ge = arr_np >= ymin
                 idx_end = np.where(mask_ge)[0][-1] if np.any(mask_ge) else None
             else:
                 idx_end = len(arr_np) - 1
 
+            # Ako nema preseka intervala, preskačemo crtanje za ovaj algoritam
             if idx_start is None or idx_end is None or idx_start > idx_end:
-                # nothing to plot in this J window for this algo
                 continue
 
             plot_x = x[idx_start: idx_end + 1]
             plot_y = arr_np[idx_start: idx_end + 1]
         else:
-            # plot full x-range but clip y-axis later
+            # crtaj celu krivu, kasnije klipujemo y-osu
             plot_x, plot_y = x, arr_np
 
         plt.plot(plot_x, plot_y, label=f"{name} (evals={len(curves.get(name, []))})")
@@ -231,13 +292,14 @@ def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=
     if not plotted_any:
         print("No curves entered the requested J window; skipping zoom plot.")
     else:
+        # dodaj oznake i legendu
         plt.xlabel("Function evaluations")
         plt.ylabel("Best J so far (lower = better)")
         plt.title(f"Benchmark (zoom by J-range {ymin}..{ymax})")
         plt.legend()
         plt.grid(True)
 
-        # If not focusing x, set y-limits to requested window so the plot is zoomed vertically.
+        # Ako nismo fokusirali x, podešavamo y-limits po zadata dva broja
         if not zoom_x_focus:
             ylo = -np.inf if ymin is None else ymin
             yhi = np.inf if ymax is None else ymax
@@ -250,11 +312,13 @@ def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=
         print("Saved zoom (by J-range) plot to", out_png_zoom)
 
     # ---------- Plot 2: full budget ----------
+    # Plotujemo kompletne best-so-far krive, sve do maksimalnog broja evaluacija
     plt.figure()
-    max_len = max(len(v) for v in best_so_far.values())
+    # odredi maksimalnu dužinu; neke krive mogu biti kraće — padujemo
+    max_len = max(len(v) for v in best_so_far.values()) if best_so_far else 0
     for name, arr in best_so_far.items():
-        # pad last value to match lengths for clean plotting
         if len(arr) < max_len:
+            # padujemo poslednjom vrednošću — to čini linije poravnate i lepše za poređenje
             arr = arr + [arr[-1]] * (max_len - len(arr))
         plt.plot(np.arange(1, len(arr) + 1), arr, label=f"{name} (evals={len(curves[name])})")
     plt.xlabel("Function evaluations")
@@ -270,6 +334,7 @@ def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=
 
     # ---------- Print a nice terminal table ----------
     try:
+        # Ako je tabulate instaliran, ispisujemo lepu tablicu
         from tabulate import tabulate
         table = []
         for name, meta in results.items():
@@ -278,7 +343,7 @@ def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=
         print("\nSummary:")
         print(tabulate(table, headers=["algo", "final_best_J", "evals", "time", "reached"], tablefmt="github"))
     except Exception:
-        # fallback plain print
+        # fallback: jednostavan tekstualni ispis
         print("\nSummary (plain):")
         for name, meta in results.items():
             print(
@@ -286,6 +351,8 @@ def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=
 
     return results, best_so_far, out_json, out_png_full
 
+
+# ---------- CLI entrypoint ----------
 if __name__ == "__main__":
     import argparse
 
