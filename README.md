@@ -5,6 +5,8 @@
 - Optimizacija parametara:
   - Random Search (baseline)
   - Coordinate Descent + Golden Section (1D line-search po koordinatama)
+  - Nelder-Mead
+  - CMA-ES (Covariance Matrix Adaptation Evolution Strategy)
 - Pygame vizuelizacija + replay najbolje putanje
 
 ## Instalacija
