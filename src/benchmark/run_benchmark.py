@@ -7,6 +7,7 @@ from collections import defaultdict
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 from src.config import DEFAULT_THETA
 from src.track import make_s_track
 from src.utils import rollout, save_best  # rollout vraća J, info
