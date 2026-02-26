@@ -5,7 +5,6 @@ python main.py --mode sim --track circle
 python main.py --mode play --load best.json --track circle
 
 
-
 - za stazu S:
 python main.py --mode sim --track s
 python main.py --mode play --load best.json --track s

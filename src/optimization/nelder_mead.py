@@ -22,6 +22,7 @@ def optimize(obj, x0, max_iters=200, tol=1e-6):
     tol : float
         Tolerancija zaustavljanja (na osnovu standardne devijacije
         vrednosti funkcije cilja unutar simpleksa).
+        standardna tacka meri rasipanje vrednosti
 
     Returns
     -------

@@ -93,7 +93,7 @@ def optimize(obj, x0, iters=70, seed=0, sigma = 0.3):
 
     # Parametri za adaptaciju sigma
     c_sigma = (mu_eff + 2) / (n + mu_eff + 5) # kontrolise brzinu azuriranja evolution putanje za sigma
-    d_sigma = 1 + 2 * max(0, np.sqrt((mu_eff - 1)/(n + 1)) - 1) + c_sigma  # damping faktor
+    d_sigma = 1 + 2 * max(0, np.sqrt((mu_eff - 1)/(n + 1)) - 1) + c_sigma  # damping faktor - stabilizuje algoritam i usporava oscialciju
 
     # Parametri za adaptaciju kovarijacije
     c_c = (4 + mu_eff/n) / (n + 4 + 2*mu_eff/n) # brzina ucenje evolution putanja za kovarijansu
