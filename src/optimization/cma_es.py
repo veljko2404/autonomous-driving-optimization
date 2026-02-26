@@ -18,9 +18,14 @@ def optimize(obj, x0, iters=70, seed=0, sigma = 0.3):
         Funkcija cilja: theta(dict) -> (J, info)
         J    - vrednost funkcije cilja
         info - dodatne informacije (debug, metrike…)
+        ovo je u benchmarku ustvari rollout
+        algoritam ne zna nista o simulaciji, vec vidi samo mapiranje
+        black-box optimizacija
 
     x0 : dict
         Početni parametri.
+        pocetna srednja vrednost
+        populaciju definismeo oko te tacke
 
     iters : int
         Broj generacija (iteracija CMA-ES algoritma).
@@ -50,6 +55,7 @@ def optimize(obj, x0, iters=70, seed=0, sigma = 0.3):
     rng = np.random.default_rng(seed)
 
     # Fiksiramo redosled parametara (bitno za mapiranje dict <-> vektor)
+    # da bi bilo deterministicko koji element je na kom indeksu
     keys = list(x0.keys())
     n = len(keys)
 
@@ -72,7 +78,7 @@ def optimize(obj, x0, iters=70, seed=0, sigma = 0.3):
     lambda_ = 4 + int(3 * np.log(n))
 
     # Broj selektovanih najboljih jedinki (μ)
-    mu = lambda_ // 2
+    mu = lambda_ // 2 #oni uticu na novu distribuciju i oni su roditelji nove generacije
 
     # Logaritamske težine (favorizuju najbolje)
     weights = np.log(mu + 0.5) - np.log(np.arange(1, mu + 1))
@@ -86,14 +92,15 @@ def optimize(obj, x0, iters=70, seed=0, sigma = 0.3):
     # ==========================================================
 
     # Parametri za adaptaciju sigma
-    c_sigma = (mu_eff + 2) / (n + mu_eff + 5)
-    d_sigma = 1 + 2 * max(0, np.sqrt((mu_eff - 1)/(n + 1)) - 1) + c_sigma
+    c_sigma = (mu_eff + 2) / (n + mu_eff + 5) # kontrolise brzinu azuriranja evolution putanje za sigma
+    d_sigma = 1 + 2 * max(0, np.sqrt((mu_eff - 1)/(n + 1)) - 1) + c_sigma  # damping faktor
 
     # Parametri za adaptaciju kovarijacije
-    c_c = (4 + mu_eff/n) / (n + 4 + 2*mu_eff/n)
-    c1 = 2 / ((n + 1.3)**2 + mu_eff)
+    c_c = (4 + mu_eff/n) / (n + 4 + 2*mu_eff/n) # brzina ucenje evolution putanja za kovarijansu
+    c1 = 2 / ((n + 1.3)**2 + mu_eff) # stopa ucenja - (informacija iz evolution path-a)
 
     # Ograničenje da c1 + c_mu <= 1
+    # stopa ucenja - (informacija iz populacije)
     c_mu = min(
         1 - c1,
         2 * (mu_eff - 2 + 1/mu_eff) / ((n + 2)**2 + mu_eff)
@@ -104,7 +111,7 @@ def optimize(obj, x0, iters=70, seed=0, sigma = 0.3):
     # ==========================================================
 
     # Kovarijaciona matrica (inicijalno identitet)
-    C = np.eye(n)
+    C = np.eye(n) # nema infromacije o korelaciji
 
     # Evolution path za sigma (kontroliše skaliranje)
     p_sigma = np.zeros(n)
@@ -119,17 +126,16 @@ def optimize(obj, x0, iters=70, seed=0, sigma = 0.3):
     # ==========================================================
     for iteration in range(iters):
 
-        # ------------------------------------------------------
-        # Eigendecomposition kovarijacione matrice
+        # Sopstvena dekompozicija kovarijacione matrice
         # C = B D^2 B^T
-        # ------------------------------------------------------
         eigvals, B = np.linalg.eigh(C)
 
         # D = sqrt(eigenvalues)
         D = np.sqrt(np.maximum(eigvals, 1e-12))
 
         # Inverzna kvadratna koren matrica (za whitening)
-        inv_sqrt_C = B @ np.diag(1/D) @ B.T
+        # whitening uklanja korelacije i skaliranje
+        inv_sqrt_C = B @ np.diag(1/D) @ B.T # ovo je C^(-1/2)
 
         # ------------------------------------------------------
         # SAMPLE POPULACIJE
@@ -188,7 +194,7 @@ def optimize(obj, x0, iters=70, seed=0, sigma = 0.3):
         x_mean = weights @ pop_mat           # nova sredina
 
         zs_mat = np.vstack(zs[:mu])
-        z_mean = weights @ zs_mat
+        z_mean = weights @ zs_mat # prosecan pomeraj u standardnom prostoru
 
         # ------------------------------------------------------
         # UPDATE EVOLUTION PATH ZA SIGMA

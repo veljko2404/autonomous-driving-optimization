@@ -79,7 +79,7 @@ def make_objective_for_track(track):
     bez znanja o detaljima simulacije.
     """
     def obj(theta):
-        return rollout(track, theta)
+        return rollout(track, theta) # rollout simulira voznju
     return obj
 
 #  Benchmark procedura
@@ -336,7 +336,7 @@ def run_benchmark(track_name="s", eval_budget=480, cma_seed=0, gs_iters_default=
     return results, best_so_far, out_json, out_png_full
 
 
-# CLI pokretanje iz terminala
+# Command Line Interface (CLI) pokretanje iz terminala
 if __name__ == "__main__":
     import argparse
 
